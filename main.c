@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
         perror("chroot");
         return 1;
     }
-    if (unshare(CLONE_NEWCGROUP | CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID) == -1) {
+    if (unshare(CLONE_NEWCGROUP | CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS) == -1) {
         perror("unshare");
         return 1;
     }
@@ -34,6 +34,11 @@ int main(int argc, char **argv) {
     }
     if (pid == 0) {
         // Child is in new PID namespace
+
+        // Mount necessary stuff
+        mount("none", "/proc", "proc", 0, NULL);
+
+        // Execute the target command
         execvp(argv[2], argv + 2);
         perror("exec");
         return 1;
