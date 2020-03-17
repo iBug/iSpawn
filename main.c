@@ -43,6 +43,8 @@ int child(SpawnConfig *config) {
     FILE *fpw = fdopen(config->s, "rb+");
     char target[PATH_MAX];
     prepare_fs(config->path, target);
+    fprintf(fpw, "%s\n", target);
+    fflush(fpw);
 
     // pivot_root(2)
     chdir(target);
@@ -129,18 +131,20 @@ int main(int argc, char **argv) {
     if (tempdir[strlen(tempdir) - 1] = '\n')
         tempdir[strlen(tempdir) - 1] = 0;
 
+    // Lazy umount the temp dir so container isn't visible from that path
+    umount2(tempdir, MNT_DETACH);
+    rmdir(tempdir);
+
     // Parent waits for child
     int status, ecode;
     wait(&status);
     if (WIFEXITED(status)) {
-        printf("Exited with status %d\n", WEXITSTATUS(status));
+        printf("iSpawn exited with status %d\n", WEXITSTATUS(status));
         ecode = WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
-        printf("Killed by signal %d\n", WTERMSIG(status));
+        printf("iSpawn killed by signal %d\n", WTERMSIG(status));
         ecode = -WTERMSIG(status);
     }
 
-    // Cleanup
-    rmdir(tempdir);
     return ecode;
 }
