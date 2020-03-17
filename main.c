@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
@@ -32,10 +33,14 @@ char * const envp[] = {
 typedef struct _SpawnConfig {
     const char *path;
     char **argv;
+    int s, sparent; // Socket communication with parent
 } SpawnConfig;
 
 int child(SpawnConfig *config) {
     char **argv = config->argv;
+    if (config->sparent)
+        close(config->sparent);
+    FILE *fpw = fdopen(config->s, "rb+");
 
     // Determine TTY
     char ttypath[PATH_MAX];
@@ -45,7 +50,7 @@ int child(SpawnConfig *config) {
         fprintf(stderr, "Failed to determine TTY\n");
         return 1;
     }
-    //fprintf(stderr, "TTY: %s\n", ttypath);
+    //fprintf(stderr, "Detected TTY: %s\n", ttypath);
 
     // Remount everything as private
     mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL);
@@ -53,6 +58,8 @@ int child(SpawnConfig *config) {
     // Preparations for pivot_root(2)
     char target[] = "/tmp/ispawn.XXXXXX";
     mkdtemp(target);
+    fprintf(fpw, "%s\n", target);
+    fflush(fpw);
     char put_old[] = "/tmp/ispawn.XXXXXX/mnt/oldroot";
     strncpy(put_old, target, strlen(target));
     // Must mount BEFORE creating put_old directory
@@ -115,14 +122,28 @@ int main(int argc, char **argv) {
         .path = argv[1],
         .argv = argv + 2
     };
+    {
+        int sv[2];
+        socketpair(AF_LOCAL, SOCK_STREAM, 0, sv);
+        config.s = sv[0];
+        config.sparent = sv[1];
+    }
     pid_t pid = clone((int(*)(void*))child, child_stack_start,
                       SIGCHLD | // Without SIGCHLD in flags we can't wait(2) for it
                       CLONE_NEWCGROUP | CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS,
                       &config);
+    close(config.s);
     if (pid == -1) {
         perror("clone");
         return 1;
     }
+
+    // Read the temp directory from child
+    FILE *fpchild = fdopen(config.sparent, "rb+");
+    char tempdir[PATH_MAX] = {};
+    fgets(tempdir, sizeof tempdir, fpchild);
+    if (tempdir[strlen(tempdir) - 1] = '\n')
+        tempdir[strlen(tempdir) - 1] = 0;
 
     // Parent waits for child
     int status;
@@ -133,12 +154,7 @@ int main(int argc, char **argv) {
         printf("Killed by signal %d\n", WTERMSIG(status));
     }
 
-    // Cleanup - reverse order of mounting
-    umount("dev/console");
-    umount("dev");
-    umount("tmp");
-    umount("sys");
-    umount("proc");
-
+    // Cleanup
+    rmdir(tempdir);
     return 0;
 }
