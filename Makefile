@@ -4,10 +4,10 @@ CC := gcc
 
 all: ispawn
 
-ispawn: main.o
+ispawn: main.o util.o
 	${CC} -o $@ $^
 
-main.o: main.c
+%.o: %.c
 	${CC} -c -o $@ $^
 
 clean:
