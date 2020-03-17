@@ -6,15 +6,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/syscall.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "cap.h"
+#include "fs.h"
 #include "util.h"
 
 const char *usage =
@@ -41,51 +40,8 @@ int child(SpawnConfig *config) {
     if (config->sparent)
         close(config->sparent);
     FILE *fpw = fdopen(config->s, "rb+");
-
-    // Determine TTY
-    char ttypath[PATH_MAX];
-    ssize_t ttypathlen = determine_tty(ttypath, sizeof ttypath);
-
-    if (ttypathlen <= 0) {
-        fprintf(stderr, "Failed to determine TTY\n");
-        return 1;
-    }
-    //fprintf(stderr, "Detected TTY: %s\n", ttypath);
-
-    // Remount everything as private
-    mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL);
-
-    // Preparations for pivot_root(2)
-    char target[] = "/tmp/ispawn.XXXXXX";
-    mkdtemp(target);
-    fprintf(fpw, "%s\n", target);
-    fflush(fpw);
-    char put_old[] = "/tmp/ispawn.XXXXXX/mnt/oldroot";
-    strncpy(put_old, target, strlen(target));
-    // Must mount BEFORE creating put_old directory
-    mount(config->path, target, NULL, MS_BIND | MS_PRIVATE, NULL);
-    mkdir(put_old, 0755);
-
-    // Mount necessary stuff
-    mount("none", "proc", "proc", 0, NULL);
-    mount("none", "sys", "sysfs", MS_RDONLY, NULL);
-    mount("none", "tmp", "tmpfs", 0, NULL);
-    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
-
-    // Create device nodes
-    mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
-    //mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
-    mknod_chown("dev/ptmx", S_IFCHR | 0666, makedev(5, 2), 0, 5);
-    mknod("dev/null", S_IFCHR | 0666, makedev(1, 3));
-    mknod("dev/zero", S_IFCHR | 0666, makedev(1, 5));
-    mknod("dev/random", S_IFCHR | 0666, makedev(1, 8));
-    mknod("dev/urandom", S_IFCHR | 0666, makedev(1, 9));
-    //mount(ttypath, "dev/console", "", MS_BIND, NULL);
-
-    // Recreate the same tty as dev/console
-    struct stat statbuf;
-    stat(ttypath, &statbuf);
-    mknod_chown("dev/console", S_IFCHR | 0600, statbuf.st_dev, 0, 5);
+    char target[PATH_MAX];
+    prepare_fs(config->path, target);
 
     // pivot_root(2)
     chdir(target);
@@ -134,8 +90,12 @@ int main(int argc, char **argv) {
         return 1;
     }
     // Prepare stack for child
-    void *child_stack = malloc(1048576);
-    void *child_stack_start = child_stack + 1048576 - 1;
+    const size_t stack_size = 1024 * 1024;
+    void *child_stack = mmap(NULL, stack_size,
+                             PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
+                             -1, 0);
+    void *child_stack_start = child_stack + stack_size;
 
     SpawnConfig config = {
         .path = argv[1],

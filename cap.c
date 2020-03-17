@@ -17,7 +17,7 @@ static int caps_list[] = {
     CAP_MKNOD,
     CAP_SETFCAP,
     CAP_SYSLOG,
-    //CAP_SYS_ADMIN,
+    CAP_SYS_ADMIN,
     CAP_SYS_BOOT,
     CAP_SYS_MODULE,
     CAP_SYS_NICE,

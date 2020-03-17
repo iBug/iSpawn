@@ -1,14 +1,15 @@
 CC := gcc
+CFLAGS ?=
 
 .PHONY: all clean
 
 all: ispawn
 
-ispawn: main.o util.o cap.o
-	${CC} -o $@ $^ -lcap
+ispawn: main.o util.o cap.o fs.o
+	${CC} ${CFLAGS} -o $@ $^ -lcap
 
 %.o: %.c
-	${CC} -c -o $@ $^
+	${CC} ${CFLAGS} -c -o $@ $^
 
 clean:
 	rm -f ispawn *.o
