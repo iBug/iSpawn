@@ -46,6 +46,7 @@ int set_cgroup(pid_t pid) {
     mkdir("/sys/fs/cgroup/memory/ispawn", 0755);
     write_file("/sys/fs/cgroup/memory/ispawn/memory.limit_in_bytes", "1073741824");
     write_file("/sys/fs/cgroup/memory/ispawn/memory.kmem.limit_in_bytes", "1073741824");
+    write_file("/sys/fs/cgroup/memory/ispawn/memory.swappiness", "0");
 
     // CPU
     mkdir("/sys/fs/cgroup/cpu/ispawn", 0755);
