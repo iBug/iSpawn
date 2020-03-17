@@ -14,6 +14,7 @@
 
 #include "cap.h"
 #include "fs.h"
+#include "syscall.h"
 #include "util.h"
 
 const char *usage =
@@ -52,10 +53,11 @@ int child(SpawnConfig *config) {
     chdir("/");
     if (umount2("/mnt/oldroot", MNT_DETACH) == -1) {
         perror("Failed to umount old root");
-        return -1;
+        //return -1; // Non-critical
+    } else if (rmdir("/mnt/oldroot") == -1) {
+        perror("Failed to remove old root directory");
+        //return -1;
     }
-    if (rmdir("/mnt/oldroot") == -1)
-        return -1;
 
     // Drop capabilities
     drop_caps();
@@ -73,6 +75,9 @@ int child(SpawnConfig *config) {
     dup2(fd, STDERR_FILENO);
     close(fd);
     */
+
+    // Apply seccomp rules
+    filter_syscall();
 
     // Execute the target command
     execvpe(argv[0], argv, envp);
