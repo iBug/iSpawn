@@ -4,8 +4,12 @@
 #include <string.h>
 #include <limits.h> // For PATH_MAX
 #include <unistd.h>
+#include <fcntl.h>
 #include <sched.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "util.h"
@@ -19,6 +23,7 @@ char * const envp[] = {
     "TERM=xterm-256color",
     "HOME=/root",
     "PWD=/",
+    "container=systemd-nspawn",
     NULL
 };
 
@@ -53,13 +58,25 @@ int main(int argc, char **argv) {
         }
         //fprintf(stderr, "TTY: %s\n", ttypath);
 
+        // Learned from systemd-nspawn
+        mount(NULL, "/", NULL, MS_REC | MS_SLAVE, NULL);
+        mount(".", ".", NULL, MS_BIND | MS_REC, NULL);
+        mount(NULL, ".", NULL, MS_REC | MS_SHARED, NULL);
+
         // Mount necessary stuff
         mount("none", "proc", "proc", 0, NULL);
         mount("none", "sys", "sysfs", MS_RDONLY, NULL);
+        mount("none", "tmp", "tmpfs", 0, NULL);
         mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
 
-        // Bind mount target must exist
-        creat("dev/console", 0755);
+        // Create device nodes
+        mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
+        mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
+        mknod_chown("dev/ptmx", S_IFCHR | 0666, makedev(5, 2), 0, 5);
+        mknod("dev/null", S_IFCHR | 0666, makedev(1, 3));
+        mknod("dev/zero", S_IFCHR | 0666, makedev(1, 5));
+        mknod("dev/random", S_IFCHR | 0666, makedev(1, 8));
+        mknod("dev/urandom", S_IFCHR | 0666, makedev(1, 9));
         mount(ttypath, "dev/console", "", MS_BIND, NULL);
 
         // Chroot after mounting
@@ -85,6 +102,7 @@ int main(int argc, char **argv) {
     // Cleanup - reverse order of mounting
     umount("dev/console");
     umount("dev");
+    umount("tmp");
     umount("sys");
     umount("proc");
 

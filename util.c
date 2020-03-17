@@ -42,3 +42,11 @@ ssize_t determine_tty(char *ttypath, size_t bufsize) {
     }
     return 0;
 }
+
+int mknod_chown(const char *path, mode_t mode, dev_t dev, uid_t uid, gid_t gid) {
+    if (mknod(path, mode, dev) == -1)
+        return -1;
+    if (chown(path, uid, gid) == -1)
+        return -1;
+    return 0;
+}
