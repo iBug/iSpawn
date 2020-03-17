@@ -70,17 +70,22 @@ int child(SpawnConfig *config) {
     mount("none", "proc", "proc", 0, NULL);
     mount("none", "sys", "sysfs", MS_RDONLY, NULL);
     mount("none", "tmp", "tmpfs", 0, NULL);
-    mount("none", "dev", "tmpfs", 0, NULL);
+    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
 
     // Create device nodes
     mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
-    mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
+    //mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
     mknod_chown("dev/ptmx", S_IFCHR | 0666, makedev(5, 2), 0, 5);
     mknod("dev/null", S_IFCHR | 0666, makedev(1, 3));
     mknod("dev/zero", S_IFCHR | 0666, makedev(1, 5));
     mknod("dev/random", S_IFCHR | 0666, makedev(1, 8));
     mknod("dev/urandom", S_IFCHR | 0666, makedev(1, 9));
-    mount(ttypath, "dev/console", "", MS_BIND, NULL);
+    //mount(ttypath, "dev/console", "", MS_BIND, NULL);
+
+    // Recreate the same tty as dev/console
+    struct stat statbuf;
+    stat(ttypath, &statbuf);
+    mknod_chown("dev/console", S_IFCHR | 0600, statbuf.st_dev, 0, 5);
 
     // pivot_root(2)
     chdir(target);
@@ -98,6 +103,20 @@ int child(SpawnConfig *config) {
 
     // Drop capabilities
     drop_caps();
+
+    // Swap std{in,out,err}
+    /*
+    int fd;
+    fd = open("/dev/console", O_RDONLY);
+    dup2(fd, STDIN_FILENO);
+    close(fd);
+    fd = open("/dev/console", O_WRONLY);
+    dup2(fd, STDOUT_FILENO);
+    close(fd);
+    fd = open("/dev/console", O_RDWR);
+    dup2(fd, STDERR_FILENO);
+    close(fd);
+    */
 
     // Execute the target command
     execvpe(argv[0], argv, envp);
@@ -146,15 +165,17 @@ int main(int argc, char **argv) {
         tempdir[strlen(tempdir) - 1] = 0;
 
     // Parent waits for child
-    int status;
+    int status, ecode;
     wait(&status);
     if (WIFEXITED(status)) {
         printf("Exited with status %d\n", WEXITSTATUS(status));
+        ecode = WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
         printf("Killed by signal %d\n", WTERMSIG(status));
+        ecode = -WTERMSIG(status);
     }
 
     // Cleanup
     rmdir(tempdir);
-    return 0;
+    return ecode;
 }
