@@ -50,3 +50,25 @@ int mknod_chown(const char *path, mode_t mode, dev_t dev, uid_t uid, gid_t gid) 
         return -1;
     return 0;
 }
+
+int read_file(const char *path, char *content, size_t size) {
+    int fd = open(path, O_RDONLY);
+    if (fd == -1)
+        return -1;
+    int ret = read(fd, content, size);
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+    return ret;
+}
+
+int write_file(const char *path, const char *content) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd == -1)
+        return -1;
+    int ret = write(fd, content, strlen(content));
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+    return ret;
+}

@@ -13,5 +13,7 @@
 
 ssize_t determine_tty(char *, size_t bufsize);
 int mknod_chown(const char *, mode_t, dev_t, uid_t, gid_t);
+int read_file(const char *, char *, size_t);
+int write_file(const char *, const char *);
 
 #endif

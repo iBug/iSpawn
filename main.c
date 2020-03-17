@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 
 #include "cap.h"
+#include "cgroup.h"
 #include "fs.h"
 #include "syscall.h"
 #include "util.h"
@@ -60,6 +61,9 @@ int child(SpawnConfig *config) {
         perror("Failed to remove old root directory");
         //return -1;
     }
+
+    // Setup cgroup
+    mount_cgroup();
 
     // Drop capabilities
     drop_caps();
@@ -124,6 +128,9 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    // Move child to cgroup
+    set_cgroup(pid);
+
     // Read the temp directory from child
     FILE *fpchild = fdopen(config.sparent, "rb+");
     char tempdir[PATH_MAX] = {};
@@ -145,6 +152,9 @@ int main(int argc, char **argv) {
         printf("iSpawn killed by signal %d\n", WTERMSIG(status));
         ecode = -WTERMSIG(status);
     }
+
+    // Cleanup cgroup
+    reset_cgroup();
 
     return ecode;
 }

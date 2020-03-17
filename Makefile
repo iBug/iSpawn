@@ -6,7 +6,7 @@ LIBS = -lcap -lseccomp
 
 all: ispawn
 
-ispawn: main.o util.o cap.o fs.o syscall.o syscall_allow.o
+ispawn: main.o util.o cap.o cgroup.o fs.o syscall.o syscall_allow.o
 	${CC} ${CFLAGS} -o $@ $^ ${LIBS}
 
 %.o: %.c
