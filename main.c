@@ -8,10 +8,12 @@
 #include <sched.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "cap.h"
 #include "util.h"
 
 const char *usage =
@@ -28,6 +30,7 @@ char * const envp[] = {
 };
 
 typedef struct _SpawnConfig {
+    const char *path;
     char **argv;
 } SpawnConfig;
 
@@ -44,16 +47,23 @@ int child(SpawnConfig *config) {
     }
     //fprintf(stderr, "TTY: %s\n", ttypath);
 
-    // Learned from systemd-nspawn
-    mount(NULL, "/", NULL, MS_REC | MS_SLAVE, NULL);
-    mount(".", ".", NULL, MS_BIND | MS_REC, NULL);
-    mount(NULL, ".", NULL, MS_REC | MS_SHARED, NULL);
+    // Remount everything as private
+    mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL);
+
+    // Preparations for pivot_root(2)
+    char target[] = "/tmp/ispawn.XXXXXX";
+    mkdtemp(target);
+    char put_old[] = "/tmp/ispawn.XXXXXX/mnt/oldroot";
+    strncpy(put_old, target, strlen(target));
+    // Must mount BEFORE creating put_old directory
+    mount(config->path, target, NULL, MS_BIND | MS_PRIVATE, NULL);
+    mkdir(put_old, 0755);
 
     // Mount necessary stuff
     mount("none", "proc", "proc", 0, NULL);
     mount("none", "sys", "sysfs", MS_RDONLY, NULL);
     mount("none", "tmp", "tmpfs", 0, NULL);
-    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
+    mount("none", "dev", "tmpfs", 0, NULL);
 
     // Create device nodes
     mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
@@ -65,11 +75,22 @@ int child(SpawnConfig *config) {
     mknod("dev/urandom", S_IFCHR | 0666, makedev(1, 9));
     mount(ttypath, "dev/console", "", MS_BIND, NULL);
 
-    // Chroot after mounting
-    if (chroot(".") == -1) {
-        perror("chroot");
+    // pivot_root(2)
+    chdir(target);
+    if (syscall(SYS_pivot_root, ".", "mnt/oldroot") == -1) {
+        perror("pivot_root");
         return 1;
     }
+    chdir("/");
+    if (umount2("/mnt/oldroot", MNT_DETACH) == -1) {
+        perror("Failed to umount old root");
+        return -1;
+    }
+    if (rmdir("/mnt/oldroot") == -1)
+        return -1;
+
+    // Drop capabilities
+    drop_caps();
 
     // Execute the target command
     execvpe(argv[0], argv, envp);
@@ -91,6 +112,7 @@ int main(int argc, char **argv) {
     void *child_stack_start = child_stack + 1048576 - 1;
 
     SpawnConfig config = {
+        .path = argv[1],
         .argv = argv + 2
     };
     pid_t pid = clone((int(*)(void*))child, child_stack_start,

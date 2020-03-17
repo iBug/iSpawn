@@ -4,8 +4,8 @@ CC := gcc
 
 all: ispawn
 
-ispawn: main.o util.o
-	${CC} -o $@ $^
+ispawn: main.o util.o cap.o
+	${CC} -o $@ $^ -lcap
 
 %.o: %.c
 	${CC} -c -o $@ $^
