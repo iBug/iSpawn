@@ -41,15 +41,17 @@ int prepare_fs(const char *path, char *mounted_path) {
     mkdir("mnt", 0755);
     mkdir("mnt/oldroot", 0755);
     mkdir("proc", 0755);
+    mkdir("run", 0755);
     mkdir("sys", 0755);
     mkdir("tmp", 0755);
 
     // Mount necessary stuff
     chdir(target);
+    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
     mount("none", "proc", "proc", 0, NULL);
+    mount("none", "run", "tmpfs", 0, NULL);
     mount("none", "sys", "sysfs", MS_RDONLY, NULL);
     mount("none", "tmp", "tmpfs", 0, NULL);
-    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
 
     // Create device nodes
     mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
