@@ -61,7 +61,7 @@ int set_cgroup(pid_t pid) {
     write_file("/sys/fs/cgroup/blkio/ispawn/weight", "50");
 
     // Apply settings
-    char s[10];
+    char s[8]; // PID don't grow over 4194304
     sprintf(s, "%d", pid);
     write_file("/sys/fs/cgroup/memory/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/cpu/ispawn/cgroup.procs", s);

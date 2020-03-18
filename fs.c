@@ -36,6 +36,14 @@ int prepare_fs(const char *path, char *mounted_path) {
     mount(path, target, NULL, MS_BIND | MS_PRIVATE, NULL);
     mkdir(put_old, 0755);
 
+    // Create stuff in case they don't pre-exist
+    mkdir("dev", 0755);
+    mkdir("mnt", 0755);
+    mkdir("mnt/oldroot", 0755);
+    mkdir("proc", 0755);
+    mkdir("sys", 0755);
+    mkdir("tmp", 0755);
+
     // Mount necessary stuff
     chdir(target);
     mount("none", "proc", "proc", 0, NULL);
