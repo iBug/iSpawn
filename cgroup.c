@@ -67,6 +67,7 @@ int set_cgroup(pid_t pid) {
     write_file("/sys/fs/cgroup/cpu/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/pids/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/blkio/ispawn/cgroup.procs", s);
+    return 0;
 }
 
 int reset_cgroup() {

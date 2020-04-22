@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS ?=
+CFLAGS ?= -Wall
 LIBS = -lcap -lseccomp
 
 .PHONY: all clean

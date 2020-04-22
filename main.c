@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     FILE *fpchild = fdopen(config.sparent, "rb+");
     char tempdir[PATH_MAX] = {};
     fgets(tempdir, sizeof tempdir, fpchild);
-    if (tempdir[strlen(tempdir) - 1] = '\n')
+    if (tempdir[strlen(tempdir) - 1] == '\n')
         tempdir[strlen(tempdir) - 1] = 0;
 
     // Lazy umount the temp dir so container isn't visible from that path

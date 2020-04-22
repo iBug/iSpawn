@@ -19,4 +19,5 @@ int filter_syscall(void) {
         return -1;
     }
     seccomp_release(ctx);
+    return 0;
 }
