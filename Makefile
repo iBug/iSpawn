@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS ?= -Wall
-LIBS = -lcap -lseccomp
+LIBS = -lcap-ng -lseccomp
 
 .PHONY: all clean
 

@@ -44,8 +44,6 @@ int child(SpawnConfig *config) {
     FILE *fpw = fdopen(config->s, "rb+");
     char target[PATH_MAX];
     prepare_fs(config->path, target);
-    fprintf(fpw, "%s\n", target);
-    fflush(fpw);
 
     // pivot_root(2)
     chdir(target);
@@ -61,6 +59,10 @@ int child(SpawnConfig *config) {
         perror("Failed to remove old root directory");
         //return -1;
     }
+
+    // Ready to inform parent to hide mount point
+    fprintf(fpw, "%s\n", target);
+    fflush(fpw);
 
     // Setup cgroup
     mount_cgroup();
