@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
         ecode = WEXITSTATUS(status);
     } else if (WIFSIGNALED(status)) {
         printf("iSpawn killed by signal %d\n", WTERMSIG(status));
-        ecode = -WTERMSIG(status);
+        ecode = 0x80 | WTERMSIG(status);
     }
 
     // Cleanup cgroup
