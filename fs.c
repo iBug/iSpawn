@@ -54,14 +54,28 @@ int prepare_fs(const char *path, char *mounted_path) {
     mount("none", "tmp", "tmpfs", 0, NULL);
 
     // Create device nodes
-    mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
-    //mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
-    mknod_chown("dev/ptmx", S_IFCHR | 0666, makedev(5, 2), 0, 5);
     mknod("dev/null", S_IFCHR | 0666, makedev(1, 3));
     mknod("dev/zero", S_IFCHR | 0666, makedev(1, 5));
     mknod("dev/random", S_IFCHR | 0666, makedev(1, 8));
     mknod("dev/urandom", S_IFCHR | 0666, makedev(1, 9));
     //mount(ttypath, "dev/console", "", MS_BIND, NULL);
+
+    // TTY is complex
+    mknod_chown("dev/tty", S_IFCHR | 0666, makedev(5, 0), 0, 5);
+    //mknod_chown("dev/console", S_IFCHR | 0666, makedev(5, 1), 0, 5);
+    mkdir("dev/pts", 0755);
+    mount("devpts", "dev/pts", "devpts", 0, NULL);
+    mknod_chown("dev/pts/ptmx", S_IFCHR | 0666, makedev(5, 2), 0, 5);
+    symlink("pts/ptmx", "dev/ptmx");
+
+    // TTY nodes
+    char buf[] = "dev/ttyXXXX";
+    for (int i = 0; i < 63; i++) {
+        sprintf(buf, "dev/tty%d", i);
+        mknod_chown(buf, S_IFCHR | 0620, makedev(4, i), 0, 5);
+        sprintf(buf, "dev/ttyS%d", i);
+        mknod_chown(buf, S_IFCHR | 0620, makedev(4, 64 + i), 0, 20);
+    }
 
     // Recreate the same tty as dev/console
     struct stat statbuf;
