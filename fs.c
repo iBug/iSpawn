@@ -30,7 +30,7 @@ int prepare_fs(const char *path, char *mounted_path) {
     char target[] = "/tmp/ispawn.XXXXXX";
     mkdtemp(target);
     strncpy(mounted_path, target, PATH_MAX);
-    char put_old[] = "/tmp/ispawn.XXXXXX/mnt/oldroot";
+    char put_old[] = "/tmp/ispawn.XXXXXX/oldroot";
     strncpy(put_old, target, strlen(target));
     // Must mount BEFORE creating put_old directory
     mount(path, target, NULL, MS_BIND | MS_PRIVATE, NULL);
@@ -39,7 +39,6 @@ int prepare_fs(const char *path, char *mounted_path) {
     // Create stuff in case they don't pre-exist
     mkdir("dev", 0755);
     mkdir("mnt", 0755);
-    mkdir("mnt/oldroot", 0755);
     mkdir("proc", 0755);
     mkdir("run", 0755);
     mkdir("sys", 0755);

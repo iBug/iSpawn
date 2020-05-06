@@ -44,18 +44,19 @@ int child(SpawnConfig *config) {
     FILE *fpw = fdopen(config->s, "rb+");
     char target[PATH_MAX];
     prepare_fs(config->path, target);
+    sethostname("iSpawn", 6);
 
     // pivot_root(2)
     chdir(target);
-    if (syscall(SYS_pivot_root, ".", "mnt/oldroot") == -1) {
+    if (syscall(SYS_pivot_root, ".", "oldroot") == -1) {
         perror("pivot_root");
         return 1;
     }
     chdir("/");
-    if (umount2("/mnt/oldroot", MNT_DETACH) == -1) {
+    if (umount2("/oldroot", MNT_DETACH) == -1) {
         perror("Failed to umount old root");
         //return -1; // Non-critical
-    } else if (rmdir("/mnt/oldroot") == -1) {
+    } else if (rmdir("/oldroot") == -1) {
         perror("Failed to remove old root directory");
         //return -1;
     }
