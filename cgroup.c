@@ -14,6 +14,55 @@
 
 #include "util.h"
 
+static char saved_blkio[64], saved_cpu[64], saved_memory[64], saved_pids[64];
+
+int save_cgroup(pid_t pid) {
+    char buf[128];
+    sprintf(buf, "/proc/%d/cgroup", pid);
+    FILE *fp = fopen(buf, "r");
+    while (fgets(buf, sizeof buf, fp) != NULL) {
+        // cgroup type appears between the colons
+        char *p1, *p2;
+        p1 = strchr(buf, ':') + 1;
+        p2 = strchr(p1, ':');
+        *p2 = 0;
+        p2++;
+        if (strcmp(p1, "blkio") == 0) {
+            strcpy(saved_blkio, p2);
+        } else if (strcmp(p1, "cpu,cpuacct") == 0) {
+            strcpy(saved_cpu, p2);
+        } else if (strcmp(p1, "memory") == 0) {
+            strcpy(saved_memory, p2);
+        } else if (strcmp(p1, "pids") == 0) {
+            strcpy(saved_pids, p2);
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+
+int restore_cgroup(pid_t pid) {
+    char buf[128], s[8];
+    sprintf(s, "%d", pid);
+    if (strlen(saved_blkio)) {
+        sprintf(buf, "/sys/fs/cgroup/blkio%s/cgroup.procs", saved_blkio);
+        write_file(buf, s);
+    }
+    if (strlen(saved_cpu)) {
+        sprintf(buf, "/sys/fs/cgroup/cpu,cpuacct%s/cgroup.procs", saved_cpu);
+        write_file(buf, s);
+    }
+    if (strlen(saved_memory)) {
+        sprintf(buf, "/sys/fs/cgroup/memory%s/cgroup.procs", saved_memory);
+        write_file(buf, s);
+    }
+    if (strlen(saved_pids)) {
+        sprintf(buf, "/sys/fs/cgroup/pids%s/cgroup.procs", saved_pids);
+        write_file(buf, s);
+    }
+    return 0;
+}
+
 int mount_cgroup(void) {
     int cgmountflags = MS_NOSUID | MS_NODEV | MS_NOEXEC;
     // Mount a tmpfs first
@@ -41,32 +90,39 @@ int mount_cgroup(void) {
     return 0;
 }
 
-int set_cgroup(pid_t pid) {
-    // Memory
-    mkdir("/sys/fs/cgroup/memory/ispawn", 0755);
-    write_file("/sys/fs/cgroup/memory/ispawn/memory.limit_in_bytes", "1073741824");
-    write_file("/sys/fs/cgroup/memory/ispawn/memory.kmem.limit_in_bytes", "1073741824");
-    write_file("/sys/fs/cgroup/memory/ispawn/memory.swappiness", "0");
-
-    // CPU
-    mkdir("/sys/fs/cgroup/cpu/ispawn", 0755);
-    write_file("/sys/fs/cgroup/cpu/ispawn/cpu.shares", "256");
-
-    // PIDs
-    mkdir("/sys/fs/cgroup/pids/ispawn", 0755);
-    write_file("/sys/fs/cgroup/pids/ispawn/pid.max", "256");
-
-    // Block I/O
-    mkdir("/sys/fs/cgroup/blkio/ispawn", 0755);
-    write_file("/sys/fs/cgroup/blkio/ispawn/weight", "50");
-
-    // Apply settings
+int apply_cgroup(pid_t pid) {
+    // Set cgroup for process
     char s[8]; // PID don't grow over 4194304
     sprintf(s, "%d", pid);
     write_file("/sys/fs/cgroup/memory/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/cpu/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/pids/ispawn/cgroup.procs", s);
     write_file("/sys/fs/cgroup/blkio/ispawn/cgroup.procs", s);
+    return 0;
+}
+
+int create_cgroup() {
+    mkdir("/sys/fs/cgroup/memory/ispawn", 0755); // Memory
+    mkdir("/sys/fs/cgroup/cpu/ispawn", 0755);    // CPU
+    mkdir("/sys/fs/cgroup/pids/ispawn", 0755);   // PIDs
+    mkdir("/sys/fs/cgroup/blkio/ispawn", 0755);  // Block I/O
+    return 0;
+}
+
+int set_cgroup() {
+    // Memory
+    write_file("/sys/fs/cgroup/memory/ispawn/memory.limit_in_bytes", "1073741824");
+    write_file("/sys/fs/cgroup/memory/ispawn/memory.kmem.limit_in_bytes", "1073741824");
+    write_file("/sys/fs/cgroup/memory/ispawn/memory.swappiness", "0");
+
+    // CPU
+    write_file("/sys/fs/cgroup/cpu/ispawn/cpu.shares", "256");
+
+    // PIDs
+    write_file("/sys/fs/cgroup/pids/ispawn/pid.max", "256");
+
+    // Block I/O
+    write_file("/sys/fs/cgroup/blkio/ispawn/weight", "50");
     return 0;
 }
 

@@ -121,6 +121,12 @@ int main(int argc, char **argv) {
         config.s = sv[0];
         config.sparent = sv[1];
     }
+
+    // Move self to target cgroup before cloning
+    save_cgroup(getpid());
+    create_cgroup();
+    apply_cgroup(getpid());
+
     pid_t pid = clone((int(*)(void*))child, child_stack_start,
                       SIGCHLD | // Without SIGCHLD in flags we can't wait(2) for it
                       CLONE_NEWCGROUP | CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS,
@@ -131,8 +137,11 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Move child to cgroup
-    set_cgroup(pid);
+    // Move self out of the target cgroup
+    restore_cgroup(getpid());
+    // Move the child in and set the actual limits
+    apply_cgroup(pid);
+    set_cgroup();
 
     // Read the temp directory from child
     FILE *fpchild = fdopen(config.sparent, "rb+");
