@@ -65,6 +65,9 @@ int child(SpawnConfig *config) {
     fprintf(fpw, "%s\n", target);
     fflush(fpw);
 
+    // Wait for parent to complete cgroup setup
+    read(config->s, target, 1);
+    unshare(CLONE_NEWCGROUP);
     // Setup cgroup
     mount_cgroup();
 
@@ -121,27 +124,16 @@ int main(int argc, char **argv) {
         config.s = sv[0];
         config.sparent = sv[1];
     }
-
-    // Move self to target cgroup before cloning
-    save_cgroup(getpid());
-    create_cgroup();
-    apply_cgroup(getpid());
-
     pid_t pid = clone((int(*)(void*))child, child_stack_start,
-                      SIGCHLD | // Without SIGCHLD in flags we can't wait(2) for it
-                      CLONE_NEWCGROUP | CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS,
+                      // NEWCGROUP done by unshare(2) in child
+                      CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS |
+                      SIGCHLD, // Without SIGCHLD in flags we can't wait(2) for it
                       &config);
     close(config.s);
     if (pid == -1) {
         perror("clone");
         return 1;
     }
-
-    // Move self out of the target cgroup
-    restore_cgroup(getpid());
-    // Move the child in and set the actual limits
-    apply_cgroup(pid);
-    set_cgroup();
 
     // Read the temp directory from child
     FILE *fpchild = fdopen(config.sparent, "rb+");
@@ -153,6 +145,11 @@ int main(int argc, char **argv) {
     // Lazy umount the temp dir so container isn't visible from that path
     umount2(tempdir, MNT_DETACH);
     rmdir(tempdir);
+
+    // Move child to cgroup
+    set_cgroup(pid);
+    // Notify child
+    write(config.sparent, "", 1);
 
     // Parent waits for child
     int status, ecode;
