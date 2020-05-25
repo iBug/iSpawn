@@ -32,7 +32,6 @@ char * const envp[] = {
 };
 
 typedef struct _SpawnConfig {
-    const char *path;
     char **argv;
     int s, sparent; // Socket communication with parent
 } SpawnConfig;
@@ -43,7 +42,7 @@ int child(SpawnConfig *config) {
         close(config->sparent);
     FILE *fpw = fdopen(config->s, "rb+");
     char target[PATH_MAX];
-    prepare_fs(config->path, target);
+    prepare_fs(".", target);
     sethostname("iSpawn", 6);
 
     // pivot_root(2)
@@ -115,7 +114,6 @@ int main(int argc, char **argv) {
     void *child_stack_start = child_stack + stack_size;
 
     SpawnConfig config = {
-        .path = argv[1],
         .argv = argv + 2
     };
     {
