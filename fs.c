@@ -46,7 +46,7 @@ int prepare_fs(const char *path, char *mounted_path) {
 
     // Mount necessary stuff
     chdir(target);
-    mount("none", "dev", "tmpfs", MS_PRIVATE, NULL);
+    mount("none", "dev", "tmpfs", 0, NULL);
     mount("none", "proc", "proc", 0, NULL);
     mount("none", "run", "tmpfs", 0, NULL);
     mount("none", "sys", "sysfs", MS_RDONLY, NULL);
