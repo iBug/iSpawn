@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
     }
     pid_t pid = clone((int(*)(void*))child, child_stack_start,
                       // NEWCGROUP done by unshare(2) in child
-                      CLONE_NEWIPC | CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS |
+                      CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS |
                       SIGCHLD, // Without SIGCHLD in flags we can't wait(2) for it
                       &config);
     close(config.s);
