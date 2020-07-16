@@ -105,6 +105,9 @@ int main(int argc, char **argv) {
         perror(argv[1]);
         return 1;
     }
+    char *cwd = malloc(PATH_MAX);
+    getcwd(cwd, PATH_MAX);
+
     // Prepare stack for child
     const size_t stack_size = 1024 * 1024;
     void *child_stack = mmap(NULL, stack_size,
@@ -127,6 +130,7 @@ int main(int argc, char **argv) {
                       CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS |
                       SIGCHLD, // Without SIGCHLD in flags we can't wait(2) for it
                       &config);
+    free(cwd);
     close(config.s);
     if (pid == -1) {
         perror("clone");
