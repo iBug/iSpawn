@@ -4,7 +4,7 @@
 
 int drop_caps(void) {
     capng_clear(CAPNG_SELECT_BOTH);
-    capng_updatev(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE | CAPNG_PERMITTED),
+    capng_updatev(CAPNG_ADD, (capng_type_t)(CAPNG_EFFECTIVE | CAPNG_PERMITTED | CAPNG_BOUNDING_SET),
         CAP_SETPCAP,
         CAP_MKNOD,
         CAP_AUDIT_WRITE,
